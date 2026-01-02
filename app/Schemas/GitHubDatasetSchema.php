@@ -96,7 +96,14 @@ class GitHubDatasetSchema implements SchemaInterface
      */
     public function transform(array $rawData): array
     {
-        // Extract common fields
+        // Handle different data structures: events, commits, issues, PRs
+        // Commits have a different structure than events
+        if (isset($rawData['sha']) && isset($rawData['commit'])) {
+            // This is a commit object
+            return $this->transformCommit($rawData);
+        }
+
+        // Extract common fields for events
         $repository = $rawData['repository'] ?? $rawData['repo'] ?? [];
         $actor = $rawData['actor'] ?? $rawData['user'] ?? $rawData['sender'] ?? [];
 
@@ -106,17 +113,17 @@ class GitHubDatasetSchema implements SchemaInterface
         // Extract timestamp
         $timestamp = $this->extractTimestamp($rawData);
 
-        // Build base schema
+        // Build base schema with explicit type casting
         $transformed = [
-            'repository_name' => $repository['full_name'] ?? $repository['name'] ?? 'unknown',
-            'repository_id' => $repository['id'] ?? null,
-            'event_type' => $eventType,
-            'actor' => $actor['login'] ?? $actor['name'] ?? 'unknown',
-            'actor_id' => $actor['id'] ?? null,
-            'timestamp' => $timestamp,
-            'commit_count' => $this->extractCommitCount($rawData),
-            'branch' => $this->extractBranch($rawData),
-            'is_public' => $repository['private'] === false,
+            'repository_name' => (string) ($repository['full_name'] ?? $repository['name'] ?? 'unknown'),
+            'repository_id' => isset($repository['id']) ? (int) $repository['id'] : null,
+            'event_type' => (string) $eventType,
+            'actor' => (string) ($actor['login'] ?? $actor['name'] ?? 'unknown'),
+            'actor_id' => isset($actor['id']) ? (int) $actor['id'] : null,
+            'timestamp' => (string) $timestamp,
+            'commit_count' => (int) $this->extractCommitCount($rawData),
+            'branch' => isset($rawData['payload']['ref']) || isset($rawData['ref']) ? (string) $this->extractBranch($rawData) : null,
+            'is_public' => !(isset($repository['private']) ? (bool) $repository['private'] : false),
             'metadata' => $this->extractMetadata($rawData, $eventType),
         ];
 
@@ -251,6 +258,35 @@ class GitHubDatasetSchema implements SchemaInterface
         }
 
         return $metadata;
+    }
+
+    /**
+     * Transform commit data (different structure than events)
+     */
+    private function transformCommit(array $commitData): array
+    {
+        $commit = $commitData['commit'] ?? [];
+        $author = $commit['author'] ?? [];
+        $committer = $commit['committer'] ?? [];
+        $repo = $commitData['repository'] ?? [];
+        $commitAuthor = $commitData['author'] ?? [];
+
+        return [
+            'repository_name' => (string) ($repo['full_name'] ?? $repo['name'] ?? 'unknown'),
+            'repository_id' => isset($repo['id']) ? (int) $repo['id'] : null,
+            'event_type' => 'push',
+            'actor' => (string) ($commitAuthor['login'] ?? $author['name'] ?? $committer['name'] ?? 'unknown'),
+            'actor_id' => isset($commitAuthor['id']) ? (int) $commitAuthor['id'] : null,
+            'timestamp' => (string) ($author['date'] ?? $committer['date'] ?? now()->toIso8601String()),
+            'commit_count' => 1,
+            'branch' => isset($commitData['ref']) ? (string) $commitData['ref'] : null,
+            'is_public' => !(isset($repo['private']) ? (bool) $repo['private'] : false),
+            'metadata' => [
+                'sha' => isset($commitData['sha']) ? (string) $commitData['sha'] : null,
+                'message' => isset($commit['message']) ? (string) $commit['message'] : null,
+                'url' => isset($commitData['html_url']) ? (string) $commitData['html_url'] : null,
+            ],
+        ];
     }
 }
 

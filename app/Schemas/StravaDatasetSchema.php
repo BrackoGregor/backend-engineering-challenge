@@ -150,37 +150,38 @@ class StravaDatasetSchema implements SchemaInterface
      */
     public function transform(array $rawData): array
     {
-        $distance = $rawData['distance'] ?? 0;
-        $distanceKm = $distance / 1000;
+        // Explicitly cast numeric values to ensure proper types
+        $distance = isset($rawData['distance']) ? (float) $rawData['distance'] : 0.0;
+        $distanceKm = $distance / 1000.0;
 
-        $averageSpeed = $rawData['average_speed'] ?? 0;
+        $averageSpeed = isset($rawData['average_speed']) ? (float) $rawData['average_speed'] : 0.0;
         $averageSpeedKmh = $averageSpeed * 3.6; // Convert m/s to km/h
 
         $transformed = [
-            'activity_id' => $rawData['id'] ?? null,
-            'activity_type' => $rawData['type'] ?? 'Unknown',
-            'name' => $rawData['name'] ?? '',
+            'activity_id' => isset($rawData['id']) ? (int) $rawData['id'] : null,
+            'activity_type' => (string) ($rawData['type'] ?? 'Unknown'),
+            'name' => (string) ($rawData['name'] ?? ''),
             'distance' => $distance,
             'distance_km' => round($distanceKm, 2),
-            'moving_time' => $rawData['moving_time'] ?? 0,
-            'elapsed_time' => $rawData['elapsed_time'] ?? 0,
-            'total_elevation_gain' => $rawData['total_elevation_gain'] ?? 0,
-            'elevation_high' => $rawData['elevation_high'] ?? null,
-            'elevation_low' => $rawData['elevation_low'] ?? null,
+            'moving_time' => isset($rawData['moving_time']) ? (int) $rawData['moving_time'] : 0,
+            'elapsed_time' => isset($rawData['elapsed_time']) ? (int) $rawData['elapsed_time'] : 0,
+            'total_elevation_gain' => isset($rawData['total_elevation_gain']) ? (float) $rawData['total_elevation_gain'] : 0.0,
+            'elevation_high' => isset($rawData['elevation_high']) ? (float) $rawData['elevation_high'] : null,
+            'elevation_low' => isset($rawData['elevation_low']) ? (float) $rawData['elevation_low'] : null,
             'start_date' => $this->parseDate($rawData['start_date'] ?? null),
             'start_date_local' => $this->parseDate($rawData['start_date_local'] ?? null),
-            'timezone' => $rawData['timezone'] ?? null,
-            'athlete_id' => $rawData['athlete']['id'] ?? $rawData['athlete_id'] ?? null,
+            'timezone' => isset($rawData['timezone']) ? (string) $rawData['timezone'] : null,
+            'athlete_id' => isset($rawData['athlete']['id']) ? (int) $rawData['athlete']['id'] : (isset($rawData['athlete_id']) ? (int) $rawData['athlete_id'] : null),
             'average_speed' => $averageSpeed,
             'average_speed_kmh' => round($averageSpeedKmh, 2),
-            'max_speed' => $rawData['max_speed'] ?? null,
-            'average_cadence' => $rawData['average_cadence'] ?? null,
-            'average_heartrate' => $rawData['average_heartrate'] ?? null,
-            'max_heartrate' => $rawData['max_heartrate'] ?? null,
-            'calories' => $rawData['calories'] ?? null,
-            'suffer_score' => $rawData['suffer_score'] ?? null,
-            'is_private' => $rawData['private'] ?? false,
-            'gear_id' => $rawData['gear_id'] ?? null,
+            'max_speed' => isset($rawData['max_speed']) ? (float) $rawData['max_speed'] : null,
+            'average_cadence' => isset($rawData['average_cadence']) ? (float) $rawData['average_cadence'] : null,
+            'average_heartrate' => isset($rawData['average_heartrate']) ? (float) $rawData['average_heartrate'] : null,
+            'max_heartrate' => isset($rawData['max_heartrate']) ? (float) $rawData['max_heartrate'] : null,
+            'calories' => isset($rawData['calories']) ? (int) $rawData['calories'] : null,
+            'suffer_score' => isset($rawData['suffer_score']) ? (int) $rawData['suffer_score'] : null,
+            'is_private' => isset($rawData['private']) ? (bool) $rawData['private'] : false,
+            'gear_id' => isset($rawData['gear_id']) ? (string) $rawData['gear_id'] : null,
             'metadata' => $this->extractMetadata($rawData),
         ];
 
